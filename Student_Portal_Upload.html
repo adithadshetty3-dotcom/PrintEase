@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>PrintEase — Student Portal</title>
+<style>
+  :root {
+    --violet: #8b4fe0;
+    --violet-2: #a855f7;
+    --blue-2: #3b82f6;
+    --text-main: #f5f3fa;
+    --text-muted: #b9b3c9;
+    --text-faint: #827c96;
+    --border: rgba(255,255,255,0.1);
+    --panel: rgba(255,255,255,0.035);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+
+  body {
+    background: #07050d;
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+    color: var(--text-main);
+    padding: clamp(14px, 3vw, 32px);
+    padding-top: calc(clamp(14px, 3vw, 32px) + env(safe-area-inset-top, 0px));
+    padding-bottom: calc(clamp(14px, 3vw, 32px) + env(safe-area-inset-bottom, 0px));
+  }
+
+  .page {
+    max-width: 1080px;
+    margin: 0 auto;
+  }
+
+  header.topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: clamp(24px, 4vw, 36px);
+    border-bottom: 1px solid var(--border);
+    margin-bottom: clamp(24px, 4vw, 36px);
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    font-size: 1.05rem;
+  }
+  .brand .dot {
+    width: 20px; height: 20px; border-radius: 50%;
+    border: 2px solid var(--text-main);
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .brand .dot::after { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--text-main); }
+  .brand .ease { color: var(--violet-2); }
+
+  .back-link {
+    color: var(--text-faint);
+    text-decoration: none;
+    font-size: 0.85rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .back-link:hover { color: var(--text-muted); }
+
+  .dropzone {
+    border: 1.5px dashed rgba(168, 85, 247, 0.5);
+    border-radius: 18px;
+    background: radial-gradient(circle at 50% 0%, rgba(139,79,224,0.08), transparent 65%);
+    padding: clamp(32px, 6vw, 56px) 20px;
+    text-align: center;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .dropzone.dragover {
+    border-color: var(--violet-2);
+    background: radial-gradient(circle at 50% 0%, rgba(139,79,224,0.18), transparent 65%);
+  }
+
+  .dropzone .cloud-icon { font-size: 1.8rem; margin-bottom: 14px; opacity: 0.85; }
+
+  .dropzone h2 {
+    margin: 0 0 8px;
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  .dropzone p {
+    margin: 0 auto 22px;
+    max-width: 440px;
+    color: var(--text-faint);
+    font-size: 0.82rem;
+    line-height: 1.6;
+  }
+
+  .dropzone-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 28px;
+  }
+
+  .select-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 6px 4px;
+  }
+  .select-btn:hover { color: var(--text-main); }
+  .select-btn:focus-visible { outline: 2px solid var(--text-main); outline-offset: 3px; border-radius: 4px; }
+
+  .sections {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(24px, 5vw, 48px);
+    margin-top: clamp(32px, 5vw, 44px);
+  }
+  @media (max-width: 760px) {
+    .sections { grid-template-columns: 1fr; }
+  }
+
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .section-head .title {
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+  .section-head .count {
+    color: var(--text-faint);
+    font-size: 0.78rem;
+    font-weight: 400;
+    margin-left: 8px;
+  }
+  .add-more {
+    background: none;
+    border: none;
+    color: var(--violet-2);
+    font-size: 0.78rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .add-more:hover { color: #c586f5; }
+
+  .pdf-list { display: flex; flex-direction: column; gap: 10px; }
+  .pdf-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 14px;
+  }
+  .pdf-item .file-icon {
+    width: 34px; height: 34px; border-radius: 8px;
+    background: rgba(139,79,224,0.16);
+    color: var(--violet-2);
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    font-size: 0.95rem;
+  }
+  .pdf-item .meta { flex-grow: 1; min-width: 0; }
+  .pdf-item .fname {
+    font-size: 0.85rem;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .pdf-item .fsub {
+    font-size: 0.74rem;
+    color: var(--text-faint);
+    margin-top: 2px;
+  }
+  .pdf-item .fsub .ready { color: #4ade80; font-weight: 600; }
+  .pdf-item .actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .icon-action {
+    width: 28px; height: 28px; border-radius: 7px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.02);
+    color: var(--text-faint);
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer;
+  }
+  .icon-action:hover { color: var(--text-main); border-color: rgba(255,255,255,0.22); }
+
+  .photo-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .photo-tile {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #16131f;
+    border: 1px solid var(--border);
+    aspect-ratio: 4 / 3;
+  }
+  .photo-tile img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+  }
+  .photo-tile .remove {
+    position: absolute; top: 6px; right: 6px;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: rgba(0,0,0,0.55);
+    border: none;
+    color: #fff;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    font-size: 0.8rem;
+  }
+  .photo-tile .caption {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    padding: 6px 8px 7px;
+    font-size: 0.7rem;
+    background: linear-gradient(0deg, rgba(0,0,0,0.75), transparent);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .photo-tile.add-tile {
+    border-style: dashed;
+    border-color: rgba(255,255,255,0.22);
+    background: rgba(255,255,255,0.015);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    cursor: pointer;
+    color: var(--text-faint);
+    font-size: 0.78rem;
+  }
+  .photo-tile.add-tile .plus { font-size: 1.3rem; line-height: 1; color: var(--text-muted); }
+  .photo-tile.add-tile:hover { color: var(--text-muted); border-color: rgba(255,255,255,0.4); }
+
+  .empty-note {
+    font-size: 0.78rem;
+    color: var(--text-faint);
+    padding: 10px 2px;
+  }
+
+  .continue-row {
+    display: flex;
+    justify-content: center;
+    margin-top: clamp(36px, 6vw, 52px);
+  }
+  .continue-btn {
+    background: #f5f3fa;
+    color: #130f22;
+    border: none;
+    border-radius: 999px;
+    padding: 13px 30px;
+    font-weight: 700;
+    font-size: 0.88rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: transform 0.15s ease, filter 0.15s ease;
+  }
+  .continue-btn:hover { filter: brightness(0.96); }
+  .continue-btn:active { transform: translateY(1px); }
+  .continue-btn:focus-visible { outline: 2px solid var(--violet-2); outline-offset: 3px; }
+  .continue-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  input[type="file"] { display: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .continue-btn, .dropzone { transition: none; }
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+    <header class="topbar">
+      <div class="brand">
+        <span class="dot" aria-hidden="true"></span>
+        PRINT<span class="ease">EASE</span>
+      </div>
+      <a class="back-link" href="index.html">← Back to Welcome</a>
+    </header>
+
+    <div class="dropzone" id="dropzone">
+      <div class="cloud-icon" aria-hidden="true">⬆️</div>
+      <h2>Drop document files &amp; photo assets here</h2>
+      <p>Supports high-resolution PDF, DOCX, PNG, and JPG up to 100MB per file. Automatic raster optimization &amp; page counting applied upon upload.</p>
+      <div class="dropzone-actions">
+        <button class="select-btn" type="button" id="selectPdfBtn">📄 Select PDFs / Documents</button>
+        <button class="select-btn" type="button" id="selectPhotoBtn">🖼️ Select Photos / Images</button>
+      </div>
+      <input type="file" id="pdfInput" accept=".pdf,.doc,.docx" multiple />
+      <input type="file" id="photoInput" accept="image/*" multiple />
+    </div>
+
+    <div class="sections">
+      <div>
+        <div class="section-head">
+          <span><span class="title">Uploaded PDF Documents</span><span class="count" id="pdfCount">0 files ready</span></span>
+          <button class="add-more" type="button" id="addMorePdf">⊕ Add More PDFs</button>
+        </div>
+        <div class="pdf-list" id="pdfList">
+          <div class="empty-note" id="pdfEmpty">No documents uploaded yet.</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-head">
+          <span><span class="title">Uploaded Images &amp; Photos</span><span class="count" id="photoCount">0 images attached</span></span>
+          <button class="add-more" type="button" id="addMorePhoto">🖼 Add More Photos</button>
+        </div>
+        <div class="photo-grid" id="photoGrid">
+          <button class="photo-tile add-tile" id="addPhotoTile" type="button">
+            <span class="plus">+</span>
+            <span>Add More Photos</span>
+            <span style="font-size:0.68rem;">PNG, JPG or WebP</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="continue-row">
+      <button class="continue-btn" id="continueBtn" disabled>Continue →</button>
+    </div>
+  </div>
+
+<script>
+  const dropzone = document.getElementById('dropzone');
+  const pdfInput = document.getElementById('pdfInput');
+  const photoInput = document.getElementById('photoInput');
+  const pdfList = document.getElementById('pdfList');
+  const pdfEmpty = document.getElementById('pdfEmpty');
+  const photoGrid = document.getElementById('photoGrid');
+  const addPhotoTile = document.getElementById('addPhotoTile');
+  const pdfCount = document.getElementById('pdfCount');
+  const photoCount = document.getElementById('photoCount');
+  const continueBtn = document.getElementById('continueBtn');
+
+  let pdfFiles = [];
+  let photoFiles = [];
+
+  function formatSize(bytes) {
+    if (bytes >= 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    return Math.max(1, Math.round(bytes / 1024)) + ' KB';
+  }
+
+  function renderPdfs() {
+    pdfList.querySelectorAll('.pdf-item').forEach(el => el.remove());
+    pdfEmpty.style.display = pdfFiles.length ? 'none' : 'block';
+    pdfFiles.forEach((file, idx) => {
+      const row = document.createElement('div');
+      row.className = 'pdf-item';
+      row.innerHTML = `
+        <span class="file-icon">📄</span>
+        <span class="meta">
+          <div class="fname">${file.name}</div>
+          <div class="fsub">${formatSize(file.size)} • <span class="ready">Ready to Print</span></div>
+        </span>
+        <span class="actions">
+          <button class="icon-action" type="button" aria-label="Preview ${file.name}">👁</button>
+          <button class="icon-action" type="button" aria-label="Remove ${file.name}" data-idx="${idx}">✕</button>
+        </span>`;
+      row.querySelector('[aria-label^="Remove"]').addEventListener('click', () => {
+        pdfFiles.splice(idx, 1);
+        renderPdfs();
+      });
+      pdfList.appendChild(row);
+    });
+    pdfCount.textContent = `${pdfFiles.length} file${pdfFiles.length === 1 ? '' : 's'} ready`;
+    updateContinue();
+  }
+
+  function renderPhotos() {
+    photoGrid.querySelectorAll('.photo-tile:not(.add-tile)').forEach(el => el.remove());
+    photoFiles.forEach((file, idx) => {
+      const tile = document.createElement('div');
+      tile.className = 'photo-tile';
+      const url = URL.createObjectURL(file);
+      tile.innerHTML = `
+        <img src="${url}" alt="${file.name}" />
+        <button class="remove" type="button" aria-label="Remove ${file.name}">✕</button>
+        <div class="caption">${file.name}</div>`;
+      tile.querySelector('.remove').addEventListener('click', () => {
+        photoFiles.splice(idx, 1);
+        renderPhotos();
+      });
+      photoGrid.insertBefore(tile, addPhotoTile);
+    });
+    photoCount.textContent = `${photoFiles.length} image${photoFiles.length === 1 ? '' : 's'} attached`;
+    updateContinue();
+  }
+
+  function updateContinue() {
+    continueBtn.disabled = (pdfFiles.length + photoFiles.length) === 0;
+  }
+
+  document.getElementById('selectPdfBtn').addEventListener('click', () => pdfInput.click());
+  document.getElementById('addMorePdf').addEventListener('click', () => pdfInput.click());
+  document.getElementById('selectPhotoBtn').addEventListener('click', () => photoInput.click());
+  document.getElementById('addMorePhoto').addEventListener('click', () => photoInput.click());
+  addPhotoTile.addEventListener('click', () => photoInput.click());
+
+  pdfInput.addEventListener('change', e => {
+    pdfFiles = pdfFiles.concat(Array.from(e.target.files));
+    renderPdfs();
+    pdfInput.value = '';
+  });
+  photoInput.addEventListener('change', e => {
+    photoFiles = photoFiles.concat(Array.from(e.target.files));
+    renderPhotos();
+    photoInput.value = '';
+  });
+
+  ['dragenter', 'dragover'].forEach(evt =>
+    dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.add('dragover'); })
+  );
+  ['dragleave', 'drop'].forEach(evt =>
+    dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.remove('dragover'); })
+  );
+  dropzone.addEventListener('drop', e => {
+    const dropped = Array.from(e.dataTransfer.files);
+    const imgs = dropped.filter(f => f.type.startsWith('image/'));
+    const docs = dropped.filter(f => !f.type.startsWith('image/'));
+    if (imgs.length) { photoFiles = photoFiles.concat(imgs); renderPhotos(); }
+    if (docs.length) { pdfFiles = pdfFiles.concat(docs); renderPdfs(); }
+  });
+
+  continueBtn.addEventListener('click', () => {
+    alert('Files queued — next: binding & colour options (coming soon).');
+  });
+
+  renderPdfs();
+  renderPhotos();
+</script>
+</body>
+</html>

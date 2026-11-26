@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>PrintEase — Intelligent Zero-Wait Print Network</title>
+<style>
+  :root {
+    --bg-deep: #0c0a16;
+    --bg-panel: #130f22;
+    --violet: #8b4fe0;
+    --violet-2: #a855f7;
+    --blue: #4f6fe0;
+    --blue-2: #3b82f6;
+    --text-main: #f5f3fa;
+    --text-muted: #b9b3c9;
+    --text-faint: #8a84a0;
+    --border: rgba(255,255,255,0.08);
+    --card-bg: rgba(255,255,255,0.03);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+    margin: 0;
+  }
+
+  body {
+    background: #05040a;
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+    color: var(--text-main);
+    padding: clamp(10px, 3vw, 32px);
+    padding-top: calc(clamp(10px, 3vw, 32px) + env(safe-area-inset-top, 0px));
+    padding-bottom: calc(clamp(10px, 3vw, 32px) + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    justify-content: center;
+  }
+
+  .frame {
+    width: 100%;
+    max-width: 980px;
+    border-radius: 22px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 30px 80px rgba(0,0,0,0.55);
+    background:
+      radial-gradient(circle at 18% 12%, rgba(139,79,224,0.35), transparent 45%),
+      radial-gradient(circle at 85% 20%, rgba(79,111,224,0.28), transparent 50%),
+      radial-gradient(circle at 50% 95%, rgba(139,79,224,0.25), transparent 55%),
+      linear-gradient(180deg, #0f0b1d 0%, #0a0714 60%, #0d0a18 100%);
+    position: relative;
+  }
+
+  /* subtle dot grid texture */
+  .frame::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(rgba(255,255,255,0.045) 1px, transparent 1px);
+    background-size: 26px 26px;
+    pointer-events: none;
+  }
+
+  .content {
+    position: relative;
+    z-index: 1;
+    padding: clamp(20px, 4vw, 36px) clamp(18px, 5vw, 48px) clamp(40px, 6vw, 60px);
+  }
+
+  header.topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: clamp(30px, 6vw, 56px);
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    font-size: 1.05rem;
+    letter-spacing: 0.3px;
+  }
+
+  .brand .dot {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid var(--text-main);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .brand .dot::after {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--text-main);
+  }
+
+  .brand .ease { color: var(--violet-2); }
+
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 16px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+  }
+
+  .pill-terminal {
+    background: linear-gradient(135deg, var(--violet), var(--blue));
+    color: #fff;
+  }
+
+  .hero {
+    text-align: center;
+    max-width: 640px;
+    margin: 0 auto;
+  }
+
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 16px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: clamp(18px, 3vw, 26px);
+  }
+  .eyebrow .dot-mark {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--violet-2);
+    flex-shrink: 0;
+  }
+
+  h1.welcome {
+    font-size: clamp(2.2rem, 7vw, 3.4rem);
+    letter-spacing: 0.06em;
+    margin: 0 0 clamp(16px, 3vw, 22px);
+    font-weight: 800;
+    line-height: 1.05;
+  }
+
+  .sub {
+    color: var(--text-muted);
+    font-size: clamp(0.92rem, 2vw, 1.02rem);
+    line-height: 1.6;
+    margin: 0 0 clamp(32px, 6vw, 44px);
+  }
+
+  .cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    text-align: left;
+    max-width: 760px;
+    margin: 0 auto;
+  }
+
+  @media (max-width: 620px) {
+    .cards { grid-template-columns: 1fr; }
+    header.topbar { padding-bottom: 36px; }
+  }
+
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: clamp(18px, 3vw, 24px);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .card-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+  }
+  .card-icon.violet { background: rgba(139,79,224,0.18); color: var(--violet-2); }
+  .card-icon.blue { background: rgba(79,111,224,0.18); color: var(--blue-2); }
+
+  .card-title-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .card-title-row h3 {
+    margin: 0;
+    font-size: 1.05rem;
+  }
+
+  .badge {
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.06);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+
+  .card p {
+    margin: 0;
+    color: var(--text-faint);
+    font-size: 0.85rem;
+    line-height: 1.55;
+    flex-grow: 1;
+  }
+
+  .cta {
+    border: none;
+    border-radius: 10px;
+    padding: 12px 18px;
+    font-weight: 700;
+    font-size: 0.88rem;
+    color: #fff;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    transition: filter 0.15s ease, transform 0.15s ease;
+  }
+  .cta:hover { filter: brightness(1.08); }
+  .cta:active { transform: translateY(1px); }
+  .cta:focus-visible {
+    outline: 2px solid var(--text-main);
+    outline-offset: 2px;
+  }
+
+  .cta.violet-cta { background: linear-gradient(135deg, var(--violet), #c86ce0); }
+  .cta.blue-cta { background: linear-gradient(135deg, var(--blue), #5b8cf0); }
+
+  .status-dot {
+    position: absolute;
+    left: clamp(18px, 5vw, 48px);
+    bottom: 20px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #32d583;
+    box-shadow: 0 0 10px rgba(50,213,131,0.8);
+  }
+
+  footer.bottom-rule {
+    margin-top: clamp(30px, 6vw, 48px);
+    border-top: 1px solid var(--border);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cta { transition: none; }
+  }
+</style>
+</head>
+<body>
+  <div class="frame">
+    <div class="content">
+      <header class="topbar">
+        <div class="brand">
+          <span class="dot" aria-hidden="true"></span>
+          PRINT<span class="ease">EASE</span>
+        </div>
+        <div class="topbar-right">
+          <span class="pill pill-terminal">TERMINAL</span>
+        </div>
+      </header>
+
+      <div class="hero">
+        <span class="eyebrow"><span class="dot-mark" aria-hidden="true"></span>Intelligent Zero-Wait Print Network</span>
+        <h1 class="welcome">WELCOME</h1>
+        <p class="sub">Skip the Queue, Print with Ease! Fast campus printing queue management, real-time dispatch, and zero-wait document processing.</p>
+      </div>
+
+      <div class="cards">
+        <div class="card">
+          <div class="card-icon violet" aria-hidden="true">🎓</div>
+          <div class="card-title-row">
+            <h3>Student Login Portal</h3>
+            <span class="badge">CAMPUS</span>
+          </div>
+          <p>Upload files, select colour/binding options, and join campus printer queues instantly with your email &amp; password or Google sign-in.</p>
+          <a class="cta violet-cta" href="student-login.html">Access Student Portal →</a>
+        </div>
+
+        <div class="card">
+          <div class="card-icon blue" aria-hidden="true">🏬</div>
+          <div class="card-title-row">
+            <h3>Shopkeeper Login</h3>
+            <span class="badge">STATION</span>
+          </div>
+          <p>Station terminal operator access, active print job dispatcher, real-time paper trays, and queue management console.</p>
+          <a class="cta blue-cta" href="shopkeeper-login.html">Access Merchant Terminal →</a>
+        </div>
+      </div>
+    </div>
+    <div class="status-dot" aria-hidden="true"></div>
+  </div>
+</body>
+</html>

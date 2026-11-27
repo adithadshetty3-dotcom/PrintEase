@@ -131,7 +131,7 @@
       <div class="panel">
         <div class="panel-head">
           <span><span class="param-label">PARAMETER 01</span><br><span class="param-title" style="margin:0;">Colour Palette</span></span>
-          <span class="hint">Default Preset</span>
+          <span class="hint">For the selected file</span>
         </div>
         <div class="option-row">
           <div class="option-card selected violet" id="bwCard" data-mode="bw">
@@ -145,7 +145,7 @@
 
       <div class="panel">
         <div class="two-col">
-          <div>
+          <div id="sidesBlock">
             <div class="param-label">SIDES</div>
             <div class="param-title">Printing Flow</div>
             <div class="option-row">
@@ -177,15 +177,17 @@
             <span class="ocr">+₹2</span>
           </div>
         </div>
+        <div id="layoutBlock">
         <div class="panel-head" style="margin-bottom:10px;">
           <span class="param-label" style="margin:0;">PHOTO LAYOUT</span>
-          <span class="hint">Auto-scaled &amp; up</span>
+          <span class="hint">Auto-scaled N-Up</span>
         </div>
         <div class="photo-grid-options" id="photoLayoutOptions">
-          <div class="photo-opt" data-layout="1"><div class="grid-icon">▢</div>1 Photo</div>
-          <div class="photo-opt" data-layout="3"><div class="grid-icon">▦</div>3 Photos</div>
-          <div class="photo-opt" data-layout="4"><div class="grid-icon">▦</div>4 Photos</div>
-          <div class="photo-opt selected" data-layout="6"><div class="grid-icon">▦</div>6 Photos</div>
+          <button type="button" class="photo-opt selected" data-layout="1"><span class="mini-sheet" style="--cols:1" aria-hidden="true"><i>1</i></span>1 Photo</button>
+          <button type="button" class="photo-opt" data-layout="2"><span class="mini-sheet" style="--cols:1" aria-hidden="true"><i>1</i><i>2</i></span>2 Photos</button>
+          <button type="button" class="photo-opt" data-layout="4"><span class="mini-sheet" style="--cols:2" aria-hidden="true"><i>1</i><i>2</i><i>3</i><i>4</i></span>4 Photos</button>
+          <button type="button" class="photo-opt" data-layout="9"><span class="mini-sheet" style="--cols:3" aria-hidden="true"><i>1</i><i>2</i><i>3</i><i>4</i><i>5</i><i>6</i><i>7</i><i>8</i><i>9</i></span>9 Photos</button>
+        </div>
         </div>
       </div>
 
@@ -221,6 +223,53 @@
       </div>
     </div>
   </div>
+
+  <!-- ================= CONFIRM AND PAY ================= -->
+  <div class="view" id="view-pay" hidden>
+    <div class="pay-page">
+      <header class="topbar">
+        <div class="brand"><span class="dot" aria-hidden="true"></span>PRINT<span class="ease">EASE</span></div>
+        <a class="back-link nav-link" id="payBack" href="#config" data-target="config">← Back to Print Settings</a>
+      </header>
+
+      <h1 class="pay-title">Confirm and Pay</h1>
+      <p class="page-sub">Check your order and pay.</p>
+
+      <form class="pay-card" id="payForm">
+        <div class="token-banner" id="tokenBanner" hidden>Your latest token: <strong id="latestToken"></strong></div>
+
+        <div class="pay-label">ORDER SUMMARY</div>
+        <div class="order-box" id="orderFiles"></div>
+
+        <div class="order-hint">Click a file to see its settings.</div>
+
+        <div class="pay-label">PRICE BREAKDOWN</div>
+        <div id="priceRows"></div>
+        <div class="total-box"><span>Total Payable</span><strong id="payTotal">₹0</strong></div>
+
+        <div class="pay-label">YOUR DETAILS</div>
+        <label class="field-label" for="customerName">Your name *</label>
+        <input class="name-input" id="customerName" type="text" maxlength="40" autocomplete="name" placeholder="Enter your name" required />
+        <div class="field-help">The shop uses this to identify your order.</div>
+
+        <div class="pay-label">PAYMENT (DEMO MODE)</div>
+        <div class="demo-option"><span class="radio-dot" aria-hidden="true"></span><span><strong>Demo UPI payment</strong><small>No real money will be charged.</small></span></div>
+
+        <div class="queue-note">🕒 Your order joins the shop queue only after payment is confirmed.</div>
+
+        <button class="paynow-btn" id="payNowBtn" type="submit" disabled>🔒 Pay ₹0</button>
+        <button class="continue-btn another-btn" id="anotherBtn" type="button" hidden>Place another order</button>
+      </form>
+    </div>
+  </div>
+
+  <dialog class="modal" id="payModal" aria-labelledby="modalTitle">
+    <div class="modal-icon" id="modalIcon" aria-hidden="true"></div>
+    <h2 id="modalTitle"></h2>
+    <p id="modalText"></p>
+    <div class="modal-token" id="modalToken" hidden></div>
+    <div class="modal-actions" id="modalActions"></div>
+  </dialog>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.8.0/mammoth.browser.min.js"></script>

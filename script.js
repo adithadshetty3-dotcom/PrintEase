@@ -1,5 +1,5 @@
 /* ---------- view router (keeps all state in memory, no page reloads) ---------- */
-const views = ['welcome', 'upload', 'config'];
+const views = ['welcome', 'upload', 'config', 'pay'];
 function showView(name) {
   if (!views.includes(name)) name = 'welcome';
   views.forEach(v => { document.getElementById('view-' + v).hidden = (v !== name); });
@@ -16,7 +16,9 @@ document.getElementById('shopkeeperLink').addEventListener('click', e => {
   e.preventDefault();
   alert('Shopkeeper Terminal — coming soon.');
 });
-showView((location.hash || '#welcome').slice(1));
+// after a refresh the files are gone, so the pay screen cannot be restored
+const firstView = (location.hash || '#welcome').slice(1);
+showView(firstView === 'pay' ? 'upload' : firstView);
 
 /* ---------- UPLOAD VIEW LOGIC ---------- */
 const dropzone = document.getElementById('dropzone');
@@ -200,26 +202,36 @@ async function getPdfPageCount(file) {
 let docSources = [];
 let activeSourceIndex = 0;
 let sheets = [];
-let copies = 1;
-let paperSurcharge = 0;
-let sides = 'double';
-let photoLayout = 6;
+const A3_EXTRA = 2;
+
+// every document gets its OWN copy of these settings
+function defaultSettings(type) {
+  return { mode: type === 'photo' ? 'colour' : 'bw', sides: 'double', copies: 1, paper: 'a4', layout: 1 };
+}
+function activeSource() { return docSources[activeSourceIndex]; }
 
 async function buildDocSources() {
   const pageCounts = await Promise.all(pdfFiles.map(getPdfPageCount));
-  docSources = pdfFiles.map((file, i) => ({ type: 'pdf', name: file.name, pages: pageCounts[i] }));
-  if (photoFiles.length > 0) {
-    docSources.push({ type: 'photo', name: `Photo Set (${photoFiles.length} image${photoFiles.length === 1 ? '' : 's'})`, count: photoFiles.length });
-  }
+  const previous = docSources;
+  docSources = pdfFiles.map((file, i) => {
+    // keep the choices already made for a file that is still uploaded
+    const old = previous.find(s => s.file === file);
+    return old || { type: 'pdf', file, name: file.name, pages: pageCounts[i], settings: defaultSettings('pdf') };
+  });
+  // every image is its own document, with its own settings (just like a PDF)
+  photoFiles.forEach(file => {
+    const old = previous.find(s => s.file === file);
+    docSources.push(old || { type: 'photo', file, name: file.name, count: 1, settings: defaultSettings('photo') });
+  });
+  docSources.forEach(s => { if (!s.sheets) s.sheets = sheetsForSource(s); });
   activeSourceIndex = 0;
 }
 
 function sheetsForSource(source) {
   if (!source) return [];
   if (source.type === 'pdf') {
-    const perSheet = sides === 'double' ? 2 : 1;
+    const perSheet = source.settings.sides === 'double' ? 2 : 1;
     const count = Math.ceil(source.pages / perSheet);
-    const defaultMode = colourCard.classList.contains('selected') ? 'colour' : 'bw';
     return Array.from({ length: count }, (_, i) => {
       const start = i * perSheet + 1;
       const end = Math.min(start + perSheet - 1, source.pages);
@@ -227,24 +239,20 @@ function sheetsForSource(source) {
         name: `Sheet ${i + 1}`,
         doc: source.name,
         pages: start === end ? `p. ${start}` : `p. ${start}-${end}`,
-        mode: defaultMode,
+        mode: source.settings.mode,
         checked: true,
       };
     });
   }
-  // photo source
-  const count = Math.ceil(source.count / photoLayout);
-  return Array.from({ length: count }, (_, i) => {
-    const start = i * photoLayout + 1;
-    const end = Math.min(start + photoLayout - 1, source.count);
-    return {
-      name: `Sheet ${i + 1}`,
-      doc: source.name,
-      pages: start === end ? `Photo ${start}` : `Photos ${start}-${end}`,
-      mode: 'colour',
-      checked: true,
-    };
-  });
+  // one image: one sheet, with the photo repeated as per the chosen layout
+  const layout = source.settings.layout;
+  return [{
+    name: 'Sheet 1',
+    doc: source.name,
+    pages: layout === 1 ? '1 photo' : `photo repeated ${layout} times`,
+    mode: source.settings.mode,
+    checked: true,
+  }];
 }
 
 function renderDocTabs() {
@@ -264,7 +272,7 @@ function renderDocTabs() {
     tab.className = 'doc-tab' + (idx === activeSourceIndex ? ' active' : '');
     tab.innerHTML = src.type === 'pdf'
       ? `<div class="fname">${src.name}</div><div class="fsub">${src.pages} Page${src.pages === 1 ? '' : 's'}</div>`
-      : `<div class="fname">${src.name}</div><div class="fsub">Printed via Photo Layout setting</div>`;
+      : `<div class="fname">${src.name}</div><div class="fsub">Image</div>`;
     tab.addEventListener('click', () => { activeSourceIndex = idx; renderDocTabs(); });
     docTabs.appendChild(tab);
   });
@@ -273,11 +281,19 @@ function renderDocTabs() {
   document.getElementById('totalPagesHint').textContent = active.type === 'pdf'
     ? `${active.pages} Page${active.pages === 1 ? '' : 's'} Total`
     : `${active.count} Image${active.count === 1 ? '' : 's'} Total`;
-  sheets = sheetsForSource(active);
+  sheets = active.sheets;
   updateAll();
 }
 
 const sheetList = document.getElementById('sheetList');
+
+function setSheetMode(idx, mode) {
+  sheets[idx].mode = mode;
+  const src = activeSource();
+  if (src.type === 'photo') src.settings.mode = mode; // an image has only one sheet
+  renderSheets();
+  updateSummary();
+}
 
 function renderSheets() {
   sheetList.innerHTML = '';
@@ -300,78 +316,110 @@ function renderSheets() {
       updateAll();
     });
     const [bwBtn, colourBtn] = row.querySelectorAll('.mode-toggle button');
-    bwBtn.addEventListener('click', () => { sheets[idx].mode = 'bw'; renderSheets(); updateSummary(); });
-    colourBtn.addEventListener('click', () => { sheets[idx].mode = 'colour'; renderSheets(); updateSummary(); });
+    bwBtn.addEventListener('click', () => setSheetMode(idx, 'bw'));
+    colourBtn.addEventListener('click', () => setSheetMode(idx, 'colour'));
     sheetList.appendChild(row);
   });
 }
 
+// price of ONE document, using only its own settings
+function sourceTotals(src) {
+  const s = src.settings;
+  const enabled = src.sheets.filter(sheet => sheet.checked);
+  const bw = enabled.filter(sheet => sheet.mode === 'bw').length;
+  const colour = enabled.length - bw;
+  const extra = s.paper === 'a3' ? A3_EXTRA * enabled.length : 0;
+  const total = (bw * BW_PRICE + colour * COLOUR_PRICE + extra) * s.copies;
+  return { count: enabled.length, bw, colour, total };
+}
+
+// the whole order is the sum of all documents (sheet numbers include copies)
+function orderTotals() {
+  const sum = { count: 0, bw: 0, colour: 0, a3: 0, total: 0 };
+  docSources.forEach(src => {
+    const t = sourceTotals(src);
+    const n = src.settings.copies;
+    sum.count += t.count * n;
+    sum.bw += t.bw * n;
+    sum.colour += t.colour * n;
+    if (src.settings.paper === 'a3') sum.a3 += t.count * n;
+    sum.total += t.total;
+  });
+  return sum;
+}
+
+// make the buttons show the settings of the selected document
+function showActiveSettings() {
+  const src = activeSource();
+  const s = src ? src.settings : defaultSettings('pdf');
+  const mark = (id, on, colourClass) => {
+    const el = document.getElementById(id);
+    el.classList.toggle('selected', on);
+    el.classList.toggle(colourClass, on);
+  };
+  mark('bwCard', s.mode === 'bw', 'violet');
+  mark('colourCard', s.mode === 'colour', 'violet');
+  mark('singleSideCard', s.sides === 'single', 'violet');
+  mark('doubleSideCard', s.sides === 'double', 'violet');
+  mark('a4Card', s.paper === 'a4', 'teal');
+  mark('a3Card', s.paper === 'a3', 'teal');
+  document.querySelectorAll('.photo-opt').forEach(o => o.classList.toggle('selected', Number(o.dataset.layout) === s.layout));
+  document.getElementById('copiesValue').textContent = `${s.copies} set${s.copies === 1 ? '' : 's'}`;
+  const isPhoto = Boolean(src) && src.type === 'photo';
+  document.getElementById('sidesBlock').hidden = isPhoto;
+  document.getElementById('layoutBlock').hidden = !isPhoto;
+}
+
+function plural(n, word) { return `${n} ${n === 1 ? word : (word === 'copy' ? 'copies' : word + 's')}`; }
+
 function updateSummary() {
-  const enabled = sheets.filter(s => s.checked);
-  const bwCount = enabled.filter(s => s.mode === 'bw').length;
-  const colourCount = enabled.filter(s => s.mode === 'colour').length;
-  const sheetCost = bwCount * BW_PRICE + colourCount * COLOUR_PRICE;
-  const surchargeCost = paperSurcharge * enabled.length;
-  const total = (sheetCost + surchargeCost) * copies;
+  const t = orderTotals();
+  const activeEnabled = sheets.filter(s => s.checked).length;
 
-  document.getElementById('selectedSummary').textContent = `${enabled.length} Selected (${sheets.length} Total)`;
-  document.getElementById('sheetsEnabledFooter').textContent = `${enabled.length} sheet${enabled.length === 1 ? '' : 's'} enabled`;
-  document.getElementById('sheetsQueuedBadge').textContent = enabled.length;
+  document.getElementById('selectedSummary').textContent = `${activeEnabled} Selected (${sheets.length} Total)`;
+  document.getElementById('sheetsEnabledFooter').textContent = `${plural(activeEnabled, 'sheet')} enabled in this document`;
+  document.getElementById('sheetsQueuedBadge').textContent = t.count;
 
-  let breakdown = `${enabled.length} sheet${enabled.length === 1 ? '' : 's'}: ${bwCount} B&W × ₹${BW_PRICE} + ${colourCount} colour × ₹${COLOUR_PRICE}`;
-  if (surchargeCost > 0) breakdown += ` + paper +₹${paperSurcharge}×${enabled.length}`;
+  let breakdown = `All files, ${plural(t.count, 'sheet')} including copies: ${t.bw} B&W × ₹${BW_PRICE} + ${t.colour} colour × ₹${COLOUR_PRICE}`;
+  if (t.a3 > 0) breakdown += ` + A3 ₹${A3_EXTRA} × ${t.a3}`;
   document.getElementById('breakdownText').textContent = breakdown;
-  document.getElementById('copiesMultiplierText').textContent = `× ${copies} set${copies === 1 ? '' : 's'}`;
-  document.getElementById('totalValue').textContent = total;
+  document.getElementById('copiesMultiplierText').textContent = '';
+  document.getElementById('totalValue').textContent = t.total;
+  showActiveSettings();
 }
 
 function updateAll() { renderSheets(); updateSummary(); }
 
 const bwCard = document.getElementById('bwCard');
 const colourCard = document.getElementById('colourCard');
-bwCard.addEventListener('click', () => { bwCard.classList.add('selected', 'violet'); colourCard.classList.remove('selected', 'violet'); });
-colourCard.addEventListener('click', () => { colourCard.classList.add('selected', 'violet'); bwCard.classList.remove('selected', 'violet'); });
-
-const singleSideCard = document.getElementById('singleSideCard');
-const doubleSideCard = document.getElementById('doubleSideCard');
-function refreshActiveSheets() {
-  if (docSources.length === 0) return;
-  sheets = sheetsForSource(docSources[activeSourceIndex]);
+// change one setting on the SELECTED document only
+function changeSetting(key, value, rebuild) {
+  const src = activeSource();
+  if (!src) return;
+  src.settings[key] = value;
+  if (rebuild) src.sheets = sheetsForSource(src);
+  if (key === 'mode') src.sheets.forEach(s => s.mode = value);
+  sheets = src.sheets;
   updateAll();
 }
-singleSideCard.addEventListener('click', () => {
-  singleSideCard.classList.add('selected', 'violet'); doubleSideCard.classList.remove('selected', 'violet');
-  sides = 'single'; refreshActiveSheets();
-});
-doubleSideCard.addEventListener('click', () => {
-  doubleSideCard.classList.add('selected', 'violet'); singleSideCard.classList.remove('selected', 'violet');
-  sides = 'double'; refreshActiveSheets();
-});
-
-document.getElementById('copiesMinus').addEventListener('click', () => {
-  copies = Math.max(1, copies - 1);
-  document.getElementById('copiesValue').textContent = `${copies} set${copies === 1 ? '' : 's'}`;
-  updateSummary();
-});
-document.getElementById('copiesPlus').addEventListener('click', () => {
-  copies += 1;
-  document.getElementById('copiesValue').textContent = `${copies} set${copies === 1 ? '' : 's'}`;
-  updateSummary();
-});
-
-const a4Card = document.getElementById('a4Card');
-const a3Card = document.getElementById('a3Card');
-a4Card.addEventListener('click', () => { a4Card.classList.add('selected', 'teal'); a3Card.classList.remove('selected', 'teal'); paperSurcharge = 0; updateSummary(); });
-a3Card.addEventListener('click', () => { a3Card.classList.add('selected', 'teal'); a4Card.classList.remove('selected', 'teal'); paperSurcharge = parseFloat(a3Card.dataset.surcharge); updateSummary(); });
-
+bwCard.addEventListener('click', () => changeSetting('mode', 'bw'));
+colourCard.addEventListener('click', () => changeSetting('mode', 'colour'));
+document.getElementById('singleSideCard').addEventListener('click', () => changeSetting('sides', 'single', true));
+document.getElementById('doubleSideCard').addEventListener('click', () => changeSetting('sides', 'double', true));
+document.getElementById('a4Card').addEventListener('click', () => changeSetting('paper', 'a4'));
+document.getElementById('a3Card').addEventListener('click', () => changeSetting('paper', 'a3'));
 document.getElementById('photoLayoutOptions').addEventListener('click', e => {
   const opt = e.target.closest('.photo-opt');
-  if (!opt) return;
-  document.querySelectorAll('.photo-opt').forEach(o => o.classList.remove('selected'));
-  opt.classList.add('selected');
-  photoLayout = parseInt(opt.dataset.layout, 10);
-  if (docSources[activeSourceIndex] && docSources[activeSourceIndex].type === 'photo') refreshActiveSheets();
+  if (opt) changeSetting('layout', Number(opt.dataset.layout), true);
 });
+
+function changeCopies(src, step) {
+  if (!src) return;
+  src.settings.copies = Math.max(1, src.settings.copies + step);
+  updateSummary();
+}
+document.getElementById('copiesMinus').addEventListener('click', () => changeCopies(activeSource(), -1));
+document.getElementById('copiesPlus').addEventListener('click', () => changeCopies(activeSource(), 1));
 
 document.getElementById('selectAllBtn').addEventListener('click', () => {
   const allChecked = sheets.every(s => s.checked);
@@ -391,9 +439,208 @@ document.getElementById('applyRangeBtn').addEventListener('click', () => {
 });
 
 document.getElementById('continuePaymentBtn').addEventListener('click', () => {
-  const enabled = sheets.filter(s => s.checked).length;
-  if (enabled === 0) { alert('Select at least one sheet to continue.'); return; }
-  alert('Proceeding to payment (checkout page coming soon).');
+  if (orderTotals().count === 0) { alert('Select at least one sheet to continue.'); return; }
+  renderPay();
+  showView('pay');
 });
+
+/* ---------- CONFIRM AND PAY VIEW LOGIC ---------- */
+const nameInput = document.getElementById('customerName');
+const payNowBtn = document.getElementById('payNowBtn');
+const payModal = document.getElementById('payModal');
+let orderPaid = false;
+let successOpen = false;
+
+// the browser may block storage, so never let it break the page
+function remember(key, value) { try { localStorage.setItem(key, value); } catch (e) {} }
+function recall(key) { try { return localStorage.getItem(key) || ''; } catch (e) { return ''; } }
+
+function addLine(box, className, left, right, leftClass, rightClass) {
+  const row = document.createElement('div');
+  row.className = className;
+  const a = document.createElement('span');
+  const b = document.createElement('span');
+  a.textContent = left;   // textContent keeps file names as plain text
+  b.textContent = right;
+  if (leftClass) a.className = leftClass;
+  if (rightClass) b.className = rightClass;
+  row.append(a, b);
+  box.appendChild(row);
+}
+
+// remembers which files are opened on the pay screen
+const openFiles = new Set();
+
+function settingBox(label, value) {
+  const box = document.createElement('div');
+  box.className = 'meta-box';
+  const a = document.createElement('span');
+  const b = document.createElement('strong');
+  a.textContent = label;
+  b.textContent = value;
+  box.append(a, b);
+  return box;
+}
+
+function copiesBox(src) {
+  const box = settingBox('COPIES', '');
+  const stepper = document.createElement('div');
+  stepper.className = 'mini-stepper';
+  const button = (text, step, label) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = text;
+    btn.setAttribute('aria-label', `${label} copies of ${src.name}`);
+    btn.disabled = orderPaid;
+    btn.addEventListener('click', () => { changeCopies(src, step); renderPay(); });
+    return btn;
+  };
+  const value = box.querySelector('strong');
+  value.textContent = plural(src.settings.copies, 'copy');
+  stepper.append(button('−', -1, 'Fewer'), value, button('+', 1, 'More'));
+  box.appendChild(stepper);
+  return box;
+}
+
+function renderPay() {
+  const t = orderTotals();
+  const files = document.getElementById('orderFiles');
+  files.innerHTML = '';
+  docSources.forEach(src => {
+    const on = src.sheets.filter(s => s.checked);
+    if (on.length === 0) return;
+    const modes = new Set(on.map(s => s.mode));
+    const mode = modes.size > 1 ? 'Mixed' : (modes.has('bw') ? 'B&W' : 'Colour');
+    const size = src.type === 'pdf' ? plural(src.pages, 'page') : plural(src.count, 'image');
+
+    // <details> is a built-in HTML box that opens and closes when clicked
+    const item = document.createElement('details');
+    item.className = 'order-item';
+    item.open = openFiles.has(src);
+    item.addEventListener('toggle', () => { item.open ? openFiles.add(src) : openFiles.delete(src); });
+    const head = document.createElement('summary');
+    addLine(head, 'order-line', src.name, `${size} • ${plural(on.length, 'sheet')} • ${mode}`, 'oname', 'oinfo');
+
+    const meta = document.createElement('div');
+    meta.className = 'order-meta';
+    meta.append(
+      settingBox('PAPER', src.settings.paper.toUpperCase()),
+      src.type === 'pdf'
+        ? settingBox('SIDES', src.settings.sides === 'double' ? 'Double-sided' : 'Single-sided')
+        : settingBox('LAYOUT', `${plural(src.settings.layout, 'photo')} per sheet`),
+      copiesBox(src)
+    );
+    const subtotal = document.createElement('div');
+    subtotal.className = 'order-subtotal';
+    subtotal.textContent = `This file: ₹${sourceTotals(src).total}`;
+    item.append(head, meta, subtotal);
+    files.appendChild(item);
+  });
+
+  const rows = document.getElementById('priceRows');
+  rows.innerHTML = '';
+  const addPrice = (label, count, price) => {
+    if (count > 0) addLine(rows, 'price-row', `${label} (${plural(count, 'sheet')} × ₹${price})`, `₹${count * price}`);
+  };
+  addPrice('Black & White', t.bw, BW_PRICE);
+  addPrice('Colour', t.colour, COLOUR_PRICE);
+  addPrice('A3 paper extra', t.a3, A3_EXTRA);
+
+  document.getElementById('payTotal').textContent = `₹${t.total}`;
+  payNowBtn.textContent = orderPaid ? '✓ Paid' : `🔒 Pay ₹${t.total}`;
+  updatePayButton();
+}
+
+function updatePayButton() {
+  payNowBtn.disabled = orderPaid || !nameInput.value.trim() || orderTotals().count === 0;
+}
+
+/* ---------- pop-up window ---------- */
+function openModal({ icon, title, text, token, buttons }) {
+  document.getElementById('modalIcon').textContent = icon;
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalText').textContent = text;
+  const tokenBox = document.getElementById('modalToken');
+  tokenBox.hidden = !token;
+  tokenBox.textContent = token || '';
+  const actions = document.getElementById('modalActions');
+  actions.innerHTML = '';
+  buttons.forEach((b, i) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = b.label;
+    if (i === 0) btn.className = 'primary';
+    btn.addEventListener('click', b.action);
+    actions.appendChild(btn);
+  });
+  if (!payModal.open) payModal.showModal();
+}
+
+function askPaymentResult() {
+  openModal({
+    icon: '💳', title: 'Demo payment',
+    text: `Amount: ₹${orderTotals().total}. No real money will be charged. Choose a result to test.`,
+    buttons: [
+      { label: 'Simulate success', action: paymentSuccess },
+      { label: 'Simulate failure', action: paymentFailure },
+    ],
+  });
+}
+
+function paymentSuccess() {
+  // temporary token made in the browser; later the backend must generate it
+  const token = 'KS-' + Math.floor(1000 + Math.random() * 9000);
+  orderPaid = true;
+  successOpen = true;
+  remember('printeaseToken', token);
+  showToken(token);
+
+  // lock the paid order
+  nameInput.disabled = true;
+  document.getElementById('payBack').hidden = true;
+  document.getElementById('anotherBtn').hidden = false;
+  renderPay();
+
+  openModal({
+    icon: '✅', title: 'Payment successful', token,
+    text: `Thank you, ${nameInput.value.trim()}. Show this token at the counter.`,
+    buttons: [{ label: 'Done', action: () => { successOpen = false; payModal.close(); } }],
+  });
+}
+
+function paymentFailure() {
+  openModal({
+    icon: '❌', title: 'Payment failed',
+    text: 'Your order has not been placed. Your details are still here.',
+    buttons: [
+      { label: 'Try again', action: askPaymentResult },
+      { label: 'Cancel', action: () => payModal.close() },
+    ],
+  });
+}
+
+// the success pop-up closes only with the Done button, even if Esc is pressed
+payModal.addEventListener('cancel', e => { if (successOpen) e.preventDefault(); });
+payModal.addEventListener('close', () => { if (successOpen) payModal.showModal(); });
+
+function showToken(token) {
+  document.getElementById('latestToken').textContent = token;
+  document.getElementById('tokenBanner').hidden = !token;
+}
+
+document.getElementById('payForm').addEventListener('submit', e => {
+  e.preventDefault();
+  if (payNowBtn.disabled) return;
+  remember('printeaseName', nameInput.value.trim());
+  askPaymentResult();
+});
+nameInput.addEventListener('input', updatePayButton);
+document.getElementById('anotherBtn').addEventListener('click', () => {
+  history.replaceState(null, '', '#upload');
+  location.reload();   // starts a fresh order; name and token stay saved
+});
+
+nameInput.value = recall('printeaseName');
+showToken(recall('printeaseToken'));
 
 updateAll();
